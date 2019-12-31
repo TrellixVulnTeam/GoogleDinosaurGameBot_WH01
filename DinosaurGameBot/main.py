@@ -5,67 +5,80 @@
 # imports
 import directkeys
 import time
-from PIL import ImageGrab
+import Sensor
 
 # vars for later
 UP = 0xC8
 DOWN = 0xD0
 SHIFT = 0x2a
-gameCoords = [635, 125, 1300, 300]
+
+# Constant variables so Rex knows when to jump
+rangeOfSensor = 25
+y = 130
+dy = 15
+x = 140
+maxRange = 200
+lost = False
+sensor = 0
+
+# sleep to give time to switch windows
+time.sleep(2)
+
 
 def millis():
     return int(round(time.time() * 1000))
 
+
+def setup():
+
+    global lost
+    global sensor
+
+    # reset the lost variable
+    lost = False
+
+    # create the sensor
+    sensor = Sensor.Sensor(rangeOfSensor, x, y, dy, maxRange)
+
+
 def main():
 
-    # Why do i do this to myself
-    first = True
-    time.sleep(2)
-
-    # Constant variables determining when to jump and shit
-    prevJumpTime = millis()
-    prevScreen = ImageGrab.grab(bbox=gameCoords)
-    startTime = time.time()
-    rangeOfSensor = 25
+    # So it does arrow keys, not numbers
+    directkeys.PressKey(SHIFT)
 
     while True:
-        # Yikes
-        y = 130
-        dy = 15
-        x = 140
 
-        if x + rangeOfSensor <= 325:
-            rangeOfSensor = int(25 + 1.25 * (time.time() - startTime))
+        # set up the game
+        setup()
 
-        directkeys.PressKey(SHIFT)
-        screen = ImageGrab.grab(bbox=gameCoords)
-        print(time.time() - startTime)
-        lowBackground = (screen.getpixel((1, y)))
-        highBackground = (screen.getpixel((1, y + dy)))
+        # a var so we know how long we've held the up key
+        prevJumpTime = 0
 
-        #  target = ImageGrab.grab(bbox=[885, 240, 1035, 290])
-        # iterate through each frame of a certain area... I think...
-        for i in range(rangeOfSensor):
-            currentLowPixel = (screen.getpixel((x + i, y)))
-            currentHighPixel = (screen.getpixel((x + i, y - dy)))
+        # declare globality of variables
+        global lost
+        global sensor
 
-            #    lower sensor                      higher sensor
-            if (currentLowPixel != lowBackground or currentHighPixel != highBackground):
-            #   directkeys.ReleaseKey(DOWN)
+        # repeat as long as the game is not yet lost
+        while True:
 
-                prevJumpTime = millis()
-                directkeys.PressKey(UP)
-                #     target.show()
-                #    break
+            # update the sensor
+            sensor.update()
 
-            else:
-                curTime = millis()
-                if (prevJumpTime - curTime >= 100 and time.time() - startTime <= 100) and (time.time() - startTime > 100):
-                    directkeys.ReleaseKey(UP)
-            #    directkeys.PressKey(DOWN)
+            # iterate through each frame of a certain area
+            for i in range(sensor.rangeOfSensor):
 
-    # Restart after losing
-    directkeys.PressKey(UP)
-    directkeys.ReleaseKey(UP)
+                #    lower sensor                      higher sensor
+                if sensor.currentLowPixel(i) != sensor.lowBackground() or sensor.currentHighPixel(i) != sensor.highBackground():
+                    prevJumpTime = millis()
+                    directkeys.PressKey(UP)
+                else:
+                    curTime = millis()
+                    if curTime - prevJumpTime >= 100:
+                        directkeys.ReleaseKey(UP)
+
+        # Restart after losing
+        directkeys.PressKey(UP)
+        directkeys.ReleaseKey(UP)
+
 
 if __name__ == "__main__": main()
